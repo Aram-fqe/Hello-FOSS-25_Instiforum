@@ -15,10 +15,109 @@ const Create = () => {
   const router = useRouter();
 
   useEffect(() => {
-    const userData = localStorage.getItem("user");
-    if (userData) {
-      setUser(JSON.parse(userData));
+    console.log("Create page useEffect running...");
+    console.log("Current URL:", window.location.href);
+    console.log("Search params:", window.location.search);
+    
+    // Extract query parameters from the current URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const sessionKey = urlParams.get("accessid");
+    
+    console.log("SessionKey:", sessionKey);
+    console.log("All URL params:", Object.fromEntries(urlParams));
+
+    // Case 1: Use localStorage if user is already saved and no new sessionKey
+    const savedUser = localStorage.getItem("user");
+    const isLoggedIn = localStorage.getItem("isLoggedIn");
+    const sessionKeyStored = localStorage.getItem("sessionKey");
+    
+    console.log("SavedUser:", savedUser);
+    console.log("IsLoggedIn:", isLoggedIn);
+    console.log("SessionKeyStored:", sessionKeyStored);
+    
+    if (savedUser && (isLoggedIn === "true" || sessionKeyStored) && !sessionKey) {
+      console.log("Using saved user data");
+      setUser(JSON.parse(savedUser));
+      return; // Exit early
+    }
+
+    // Case 2: If sessionKey exists (fresh login from SSO)
+    if (sessionKey) {
+      fetch("https://sso.tech-iitb.org/project/getuserdata", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: sessionKey }),
+      })
+        .then((res) => res.json())
+        .then(async (data) => {
+          console.log("User Data:", data);
+
+          // Rebuild the object with your own fields
+          const newData = {
+            id: crypto.randomUUID(),
+            name: data.name,
+            roll: data.roll,
+            department: data.department,
+            degree: data.degree,
+            role: "student",
+            image: null,
+          };
+
+          //  STEP 1: Check if user already exists in Supabase
+          const { data: existingUser, error: checkError } = await supabase
+            .from("users")
+            .select("*")
+            .eq("roll", newData.roll)
+            .maybeSingle(); // safer than .single() if no row exists
+
+          if (checkError && checkError.code !== "PGRST116") {
+            console.error("Error checking user:", checkError.message);
+            return;
+          }
+
+          if (existingUser) {
+            // IF user already exists
+            console.log("User already exists:", existingUser);
+            setUser(existingUser);
+            localStorage.setItem("user", JSON.stringify(existingUser));
+            localStorage.setItem("sessionKey", sessionKey);
+            localStorage.setItem("isLoggedIn", "true");
+            console.log("Saved existing user to localStorage");
+          } else {
+            // ELSE: Insert the new user
+            console.log("No existing user found. Inserting new one...");
+            const { data: inserted, error: insertError } = await supabase
+              .from("users")
+              .insert([newData])
+              .select()
+              .single();
+
+            if (insertError) {
+              console.error("Supabase Insert Error:", insertError.message);
+            } else {
+              console.log("Inserted into Supabase:", inserted);
+              setUser(inserted);
+              localStorage.setItem("user", JSON.stringify(inserted));
+              localStorage.setItem("sessionKey", sessionKey);
+              localStorage.setItem("isLoggedIn", "true");
+              console.log("Saved new user to localStorage");
+            }
+          }
+          
+          // Clean URL by removing accessid parameter
+          const cleanUrl = window.location.pathname;
+          window.history.replaceState({}, '', cleanUrl);
+          
+          // Verify localStorage was set
+          console.log("Final localStorage check:");
+          console.log("user:", localStorage.getItem("user"));
+          console.log("sessionKey:", localStorage.getItem("sessionKey"));
+          console.log("isLoggedIn:", localStorage.getItem("isLoggedIn"));
+        })
+        .catch((err) => console.error("Fetch error:", err));
     } else {
+      // Case 3: No sessionKey and no saved user - redirect to signin
+      console.log("No authentication found, redirecting to signin");
       router.push('/signin');
     }
   }, [router]);
@@ -70,14 +169,6 @@ const Create = () => {
       setLoading(false);
     }
   };
-
-  if (!user) {
-    return (
-      <div className="min-h-screen w-full flex justify-center items-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>
-      </div>
-    );
-  }
 
   return (
     <div className='min-h-screen w-full flex flex-col items-center justify-center bg-gray-50 p-4'>

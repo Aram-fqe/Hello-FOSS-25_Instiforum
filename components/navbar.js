@@ -8,23 +8,26 @@ const Navbar = () => {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    const localUser = localStorage.getItem("user");
-    if (localUser) {
-      setUser(JSON.parse(localUser));
-    } else {
-      setUser(null);
-    }
-
-    // Listen for storage changes to update profile picture
-    const handleStorageChange = () => {
-      const updatedUser = localStorage.getItem("user");
-      if (updatedUser) {
-        setUser(JSON.parse(updatedUser));
+    const updateUserState = () => {
+      const localUser = localStorage.getItem("user");
+      const isLoggedIn = localStorage.getItem("isLoggedIn");
+      if (localUser && isLoggedIn === "true") {
+        setUser(JSON.parse(localUser));
+      } else {
+        setUser(null);
       }
     };
 
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    updateUserState();
+
+    const handleAuthChange = () => updateUserState();
+    window.addEventListener('storage', handleAuthChange);
+    window.addEventListener('authStateChanged', handleAuthChange);
+    
+    return () => {
+      window.removeEventListener('storage', handleAuthChange);
+      window.removeEventListener('authStateChanged', handleAuthChange);
+    };
   }, []);
 
   return (
@@ -46,7 +49,9 @@ const Navbar = () => {
                     alt='user image' 
                   />
                 </Link>
-                <Button variant="default">Logout</Button>
+                <Link href="/signout">
+                  <Button variant="default">Logout</Button>
+                </Link>
               </div>
              
             ) : (
