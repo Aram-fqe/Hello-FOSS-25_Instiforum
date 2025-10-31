@@ -10,7 +10,6 @@ export default function Home() {
     // Preserve URL parameters when redirecting
     const params = searchParams.toString();
     const redirectUrl = params ? `/home?${params}` : '/home';
-    console.log("Root redirect with params:", redirectUrl);
     router.replace(redirectUrl);
   }, [router, searchParams]);
 

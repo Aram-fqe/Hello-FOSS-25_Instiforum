@@ -71,26 +71,15 @@ export default function Home() {
     fetchPosts();
   }, []);
   useEffect(() => {
-    console.log("Home page useEffect running...");
-    console.log("Current URL:", window.location.href);
-    console.log("Search params:", window.location.search);
-    
     // Extract query parameters from the current URL
     const urlParams = new URLSearchParams(window.location.search);
     const sessionKey = urlParams.get("accessid");
-    
-    console.log("SessionKey:", sessionKey);
-    console.log("All URL params:", Object.fromEntries(urlParams));
 
     // Case 1: Use localStorage if user is already saved and no new sessionKey
     const savedUser = localStorage.getItem("user");
     const sessionKeyStored = localStorage.getItem("sessionKey");
     
-    console.log("SavedUser:", savedUser);
-    console.log("SessionKeyStored:", sessionKeyStored);
-    
     if (savedUser && !sessionKey) {
-      console.log("Using saved user data");
       setUser(JSON.parse(savedUser));
       return; // Exit early
     }
@@ -104,7 +93,6 @@ export default function Home() {
       })
         .then((res) => res.json())
         .then(async (data) => {
-          console.log("User Data:", data);
 
           // Rebuild the object with your own fields
           const newData = {
@@ -131,16 +119,13 @@ export default function Home() {
 
           if (existingUser) {
             // IF user already exists
-            console.log("User already exists:", existingUser);
             setUser(existingUser);
             localStorage.setItem("user", JSON.stringify(existingUser));
             localStorage.setItem("sessionKey", sessionKey);
             localStorage.setItem("isLoggedIn", "true");
             window.dispatchEvent(new Event('authStateChanged'));
-            console.log("Saved existing user to localStorage");
           } else {
             // ELSE: Insert the new user
-            console.log("No existing user found. Inserting new one...");
             const { data: inserted, error: insertError } = await supabase
               .from("users")
               .insert([newData])
@@ -150,7 +135,6 @@ export default function Home() {
             if (insertError) {
               console.error("Supabase Insert Error:", insertError.message);
             } else {
-              console.log("Inserted into Supabase:", inserted);
               setUser(inserted);
               localStorage.setItem("user", JSON.stringify(inserted));
               localStorage.setItem("sessionKey", sessionKey);
