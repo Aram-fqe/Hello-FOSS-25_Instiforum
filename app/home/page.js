@@ -12,13 +12,7 @@ export default function Home() {
   const buildQuery = (filters) => {
     let query = supabase
       .from("posts")
-      .select(`
-        *,
-        users!posts_user_id_fkey (
-          name,
-          roll
-        )
-      `);
+      .select("*");
 
     if (filters.search) {
       query = query.or(`title.ilike.%${filters.search}%,content.ilike.%${filters.search}%`);
@@ -77,13 +71,26 @@ export default function Home() {
     fetchPosts();
   }, []);
   useEffect(() => {
+    console.log("Home page useEffect running...");
+    console.log("Current URL:", window.location.href);
+    console.log("Search params:", window.location.search);
+    
     // Extract query parameters from the current URL
     const urlParams = new URLSearchParams(window.location.search);
     const sessionKey = urlParams.get("accessid");
+    
+    console.log("SessionKey:", sessionKey);
+    console.log("All URL params:", Object.fromEntries(urlParams));
 
     // Case 1: Use localStorage if user is already saved and no new sessionKey
     const savedUser = localStorage.getItem("user");
+    const sessionKeyStored = localStorage.getItem("sessionKey");
+    
+    console.log("SavedUser:", savedUser);
+    console.log("SessionKeyStored:", sessionKeyStored);
+    
     if (savedUser && !sessionKey) {
+      console.log("Using saved user data");
       setUser(JSON.parse(savedUser));
       return; // Exit early
     }
@@ -107,7 +114,7 @@ export default function Home() {
             department: data.department,
             degree: data.degree,
             role: "student",
-            image: null,
+            // image: null,
           };
 
           //  STEP 1: Check if user already exists in Supabase
@@ -127,6 +134,10 @@ export default function Home() {
             console.log("User already exists:", existingUser);
             setUser(existingUser);
             localStorage.setItem("user", JSON.stringify(existingUser));
+            localStorage.setItem("sessionKey", sessionKey);
+            localStorage.setItem("isLoggedIn", "true");
+            window.dispatchEvent(new Event('authStateChanged'));
+            console.log("Saved existing user to localStorage");
           } else {
             // ELSE: Insert the new user
             console.log("No existing user found. Inserting new one...");
@@ -142,11 +153,15 @@ export default function Home() {
               console.log("Inserted into Supabase:", inserted);
               setUser(inserted);
               localStorage.setItem("user", JSON.stringify(inserted));
+              localStorage.setItem("sessionKey", sessionKey);
+              localStorage.setItem("isLoggedIn", "true");
+              window.dispatchEvent(new Event('authStateChanged'));
             }
           }
-
-          // Save sessionKey
-          localStorage.setItem("sessionKey", sessionKey);
+          
+          // Clean URL by removing accessid parameter
+          const cleanUrl = window.location.pathname;
+          window.history.replaceState({}, '', cleanUrl);
         })
         .catch((err) => console.error("Fetch error:", err));
     }
